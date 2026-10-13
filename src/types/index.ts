@@ -6,6 +6,7 @@ export interface TestData {
   priority: string;
   steps: string[];
   isAutomated?: boolean;
+  linkedTests?: string[];
   [key: string]: any; // Allow dynamic fields like new requirement fields
 }
 
@@ -25,6 +26,16 @@ export interface Webhook {
   name: string;
   url: string;
   events: string[];
+}
+
+export interface Integration {
+  id: string;
+  name: string;
+  category: string;
+  status: 'connected' | 'syncing' | 'error';
+  endpoint: string;
+  description: string;
+  capabilities: string[];
 }
 
 export interface RequirementData {

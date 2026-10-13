@@ -5,7 +5,8 @@ import { RelationalView } from './components/RelationalView';
 import { WebhookPanel } from './components/WebhookPanel';
 import { AddTestModal } from './components/AddTestModal';
 import { runAggregationEngine } from './services/aggregation';
-import type { AggregatedTestObject, AuditLog, Webhook, TestData } from './types';
+import { mockIntegrations } from './data/mockData';
+import type { AggregatedTestObject, AuditLog, Webhook, TestData, Integration } from './types';
 import { Layers, Plus, FileText } from 'lucide-react';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
   
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [webhooks] = useState<Webhook[]>([{ id: 'WH-1', name: 'Jira Sync Listener', url: 'https://api.internal/webhooks/jira-sync', events: ['schema.updated', 'test.updated'] }]);
+  const [integrations] = useState<Integration[]>(mockIntegrations);
   const [schemaFields, setSchemaFields] = useState<string[]>([]);
 
   const addLog = (
@@ -56,13 +58,30 @@ function App() {
       
       setTimeout(() => {
         setSchemaFields(prev => [...prev, 'requiresAuthToken']);
-        setData(prevData => prevData.map(item => ({
-          ...item,
-          test: {
-            ...item.test,
-            requiresAuthToken: null // Assign null initially to be filled
-          }
-        })));
+        setData(prevData => {
+          return prevData.map(item => {
+            // Find other tests with the same underlying requirement to link them
+            const reqId = item.requirement?.requirementId;
+            let linkedTests: string[] = item.test.linkedTests || [];
+            
+            if (reqId) {
+              const peers = prevData
+                .filter(other => other.requirement?.requirementId === reqId && other.test.id !== item.test.id)
+                .map(other => other.test.id);
+                
+              linkedTests = Array.from(new Set([...linkedTests, ...peers]));
+            }
+
+            return {
+              ...item,
+              test: {
+                ...item.test,
+                requiresAuthToken: null, // Assign null initially to be filled
+                linkedTests: linkedTests.length > 0 ? linkedTests : undefined
+              }
+            };
+          });
+        });
         addLog('Schema Modification Complete', 'Field "requiresAuthToken" added to Test Schema', 'success', 'schema.update', 'Schema Registry', { field: 'requiresAuthToken', type: 'boolean' });
         
         // Trigger webhook log
@@ -75,8 +94,13 @@ function App() {
   };
 
   const handleUpdateTestField = (testId: string, field: string, value: any) => {
+    // Find main test and any linked tests
+    const mainTest = data.find(item => item.test.id === testId);
+    const linkedTests = mainTest?.test.linkedTests || [];
+    const allTestsToUpdate = [testId, ...linkedTests];
+
     setData(prev => prev.map(item => {
-      if (item.test.id === testId) {
+      if (allTestsToUpdate.includes(item.test.id)) {
         return {
           ...item,
           test: {
@@ -89,7 +113,7 @@ function App() {
     }));
     
     // Also update selectedTest if it's open
-    if (selectedTest?.test.id === testId) {
+    if (selectedTest && allTestsToUpdate.includes(selectedTest.test.id)) {
       setSelectedTest(prev => prev ? {
         ...prev,
         test: {
@@ -99,24 +123,26 @@ function App() {
       } : null);
     }
 
-    addLog('Test Record Updated', `Test ${testId} field "${field}" set to ${value}`, 'success', 'test.update', 'Internal Engine', { testId, field, newValue: value });
-    
-    // Simulate specific webhooks based on field edited
-    if (field === 'priority' || field === 'summary' || field === 'description') {
-      setTimeout(() => addLog('Webhook Fired: Jira Sync', `Updating Jira issue via API for ${testId}`, 'pending', 'webhook.fire', 'Jira API', { issueId: testId, [field]: value }), 200);
-      setTimeout(() => addLog('Jira Sync Complete', `Issue successfully updated`, 'success', 'webhook.response', 'Jira API'), 1200);
-    } else if (field === 'status') {
-      setTimeout(() => addLog('Webhook Fired: TestRail Sync', `Updating execution status for ${testId}`, 'pending', 'webhook.fire', 'TestRail API', { testRunId: testId, status: value }), 200);
-      setTimeout(() => addLog('TestRail Sync Complete', `Status set to ${value}`, 'success', 'webhook.response', 'TestRail API'), 1200);
+    allTestsToUpdate.forEach(id => {
+      addLog('Test Record Updated', `Test ${id} field "${field}" set to ${value}`, 'success', 'test.update', 'Internal Engine', { testId: id, field, newValue: value });
       
-      // Auto-trigger bug creation if failed
-      if (value === 'Failed') {
-        setTimeout(() => addLog('Webhook Fired: Azure DevOps', `Automated bug creation triggered for ${testId}`, 'pending', 'webhook.fire', 'Azure DevOps API', { title: `Automated Bug: ${testId} Failed` }), 1600);
-        setTimeout(() => addLog('Azure DevOps Complete', `Bug AD-1052 created and linked`, 'success', 'webhook.response', 'Azure DevOps API', { createdBugId: 'AD-1052' }), 2800);
+      // Simulate specific webhooks based on field edited
+      if (field === 'priority' || field === 'summary' || field === 'description') {
+        setTimeout(() => addLog('Webhook Fired: Jira Sync', `Updating Jira issue via API for ${id}`, 'pending', 'webhook.fire', 'Jira API', { issueId: id, [field]: value }), 200);
+        setTimeout(() => addLog('Jira Sync Complete', `Issue successfully updated`, 'success', 'webhook.response', 'Jira API'), 1200);
+      } else if (field === 'status') {
+        setTimeout(() => addLog('Webhook Fired: TestRail Sync', `Updating execution status for ${id}`, 'pending', 'webhook.fire', 'TestRail API', { testRunId: id, status: value }), 200);
+        setTimeout(() => addLog('TestRail Sync Complete', `Status set to ${value}`, 'success', 'webhook.response', 'TestRail API'), 1200);
+        
+        // Auto-trigger bug creation if failed
+        if (value === 'Failed') {
+          setTimeout(() => addLog('Webhook Fired: Azure DevOps', `Automated bug creation triggered for ${id}`, 'pending', 'webhook.fire', 'Azure DevOps API', { title: `Automated Bug: ${id} Failed` }), 1600);
+          setTimeout(() => addLog('Azure DevOps Complete', `Bug AD-1052 created and linked`, 'success', 'webhook.response', 'Azure DevOps API', { createdBugId: 'AD-1052' }), 2800);
+        }
+      } else {
+        setTimeout(() => addLog('Webhook Fired: Universal Listener', `Payload sent with test.updated event for ${id}`, 'success', 'webhook.fire', 'Universal Event Bus', { entity: 'test', event: 'updated', id: id, changes: { [field]: value } }), 200);
       }
-    } else {
-      setTimeout(() => addLog('Webhook Fired: Universal Listener', `Payload sent with test.updated event for ${testId}`, 'success', 'webhook.fire', 'Universal Event Bus', { entity: 'test', event: 'updated', id: testId, changes: { [field]: value } }), 200);
-    }
+    });
   };
 
   const handleAddTest = (testData: Partial<TestData>) => {
@@ -168,8 +194,12 @@ function App() {
   const handleRunAutomatedTest = (testId: string) => {
     addLog('Automated Test Triggered', `Manual execution requested for ${testId}`, 'pending', 'webhook.fire', 'CI/CD Pipeline', { testId, trigger: 'manual_ui' });
     
+    const isADO = Math.random() > 0.5;
+    const runnerName = isADO ? 'ado-agent-pool-ubuntu' : 'jenkins-node-04';
+    const pipelineName = isADO ? 'Azure Pipelines' : 'Jenkins Runner';
+
     setTimeout(() => {
-      addLog('Test Execution Started', `Running test script on Jenkins Runner`, 'pending', 'system.compute', 'CI/CD Pipeline', { runner: 'jenkins-slave-04' });
+      addLog('Test Execution Started', `Running test script on ${pipelineName}`, 'pending', 'system.compute', 'CI/CD Pipeline', { runner: runnerName });
     }, 1000);
 
     setTimeout(() => {
@@ -181,7 +211,7 @@ function App() {
       const newCicdData = {
         id: `EXEC-${runId}`,
         testId,
-        executionEnvironment: 'jenkins-slave-04',
+        executionEnvironment: runnerName,
         artifactReferences: [
           `s3://logs/run-${runId}.log`,
           passed ? '' : `s3://artifacts/failure-screenshot-${runId}.png`
@@ -326,13 +356,14 @@ function App() {
           </div>
         ) : (
           <div className="h-[800px] max-h-[80vh]">
-            <WebhookPanel logs={logs} webhooks={webhooks} />
+            <WebhookPanel logs={logs} webhooks={webhooks} integrations={integrations} />
           </div>
         )}
       </main>
 
       {selectedTest && (
         <RelationalView 
+          key={selectedTest.test.id}
           data={selectedTest} 
           onClose={() => setSelectedTest(null)} 
           schemaFields={schemaFields}

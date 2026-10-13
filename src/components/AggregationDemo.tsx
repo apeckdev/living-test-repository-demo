@@ -8,6 +8,7 @@ interface Props {
 
 export const AggregationDemo: React.FC<Props> = ({ onRunAggregation, isAggregated }) => {
   const [isAnimating, setIsAnimating] = useState(false);
+  const [hoveredCard, setHoveredCard] = useState<'requirements' | 'tests' | 'cicd' | null>(null);
 
   const handleRun = async () => {
     if (isAnimating || isAggregated) return;
@@ -31,13 +32,25 @@ export const AggregationDemo: React.FC<Props> = ({ onRunAggregation, isAggregate
 
         <div className="flex flex-col md:flex-row items-center justify-center gap-6 w-full max-w-4xl">
           {/* Source 1: Requirements */}
-          <div className="flex-1 w-full bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-6 flex flex-col items-center shadow-lg relative group">
-            <div className={`absolute inset-0 bg-emerald-500/10 rounded-2xl transition-opacity duration-500 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}></div>
+          <div 
+            onMouseEnter={() => setHoveredCard('requirements')}
+            onMouseLeave={() => setHoveredCard(null)}
+            className="flex-1 w-full bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-6 flex flex-col items-center shadow-lg relative group cursor-pointer transition-all duration-300 hover:border-slate-600 hover:bg-slate-800"
+          >
+            <div className={`absolute inset-0 bg-emerald-500/10 rounded-2xl transition-opacity duration-500 pointer-events-none ${isAnimating ? 'opacity-100' : 'opacity-0'}`}></div>
             <div className="w-14 h-14 bg-slate-700/50 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Settings className="w-7 h-7 text-emerald-400" />
             </div>
             <h3 className="text-white font-bold mb-1">Requirements</h3>
-            <p className="text-slate-400 text-sm text-center">Jira, Confluence</p>
+            <div className="relative h-10 w-full overflow-hidden flex items-center justify-center">
+              <p className={`text-emerald-300 text-xs text-center font-medium transition-all duration-300 transform ${
+                hoveredCard === 'requirements' 
+                  ? 'opacity-100 translate-y-0' 
+                  : 'opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0'
+              }`}>
+                Jira, Confluence, Azure Boards, Rally, Linear
+              </p>
+            </div>
           </div>
 
           {/* Connection Line & Dots */}
@@ -46,13 +59,25 @@ export const AggregationDemo: React.FC<Props> = ({ onRunAggregation, isAggregate
           </div>
 
           {/* Source 2: Tests */}
-          <div className="flex-1 w-full bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-6 flex flex-col items-center shadow-lg relative group">
-            <div className={`absolute inset-0 bg-blue-500/10 rounded-2xl transition-opacity duration-500 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}></div>
+          <div 
+            onMouseEnter={() => setHoveredCard('tests')}
+            onMouseLeave={() => setHoveredCard(null)}
+            className="flex-1 w-full bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-6 flex flex-col items-center shadow-lg relative group cursor-pointer transition-all duration-300 hover:border-slate-600 hover:bg-slate-800"
+          >
+            <div className={`absolute inset-0 bg-blue-500/10 rounded-2xl transition-opacity duration-500 pointer-events-none ${isAnimating ? 'opacity-100' : 'opacity-0'}`}></div>
             <div className="w-14 h-14 bg-slate-700/50 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Database className="w-7 h-7 text-blue-400" />
             </div>
             <h3 className="text-white font-bold mb-1">Existing Tests</h3>
-            <p className="text-slate-400 text-sm text-center">TestRail, Xray</p>
+            <div className="relative h-10 w-full overflow-hidden flex items-center justify-center">
+              <p className={`text-blue-300 text-xs text-center font-medium transition-all duration-300 transform ${
+                hoveredCard === 'tests' 
+                  ? 'opacity-100 translate-y-0' 
+                  : 'opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0'
+              }`}>
+                TestRail, Xray, Zephyr, qTest, ALM
+              </p>
+            </div>
           </div>
 
           {/* Connection Line & Dots */}
@@ -61,13 +86,25 @@ export const AggregationDemo: React.FC<Props> = ({ onRunAggregation, isAggregate
           </div>
 
           {/* Source 3: CI/CD */}
-          <div className="flex-1 w-full bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-6 flex flex-col items-center shadow-lg relative group">
-            <div className={`absolute inset-0 bg-amber-500/10 rounded-2xl transition-opacity duration-500 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}></div>
+          <div 
+            onMouseEnter={() => setHoveredCard('cicd')}
+            onMouseLeave={() => setHoveredCard(null)}
+            className="flex-1 w-full bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-6 flex flex-col items-center shadow-lg relative group cursor-pointer transition-all duration-300 hover:border-slate-600 hover:bg-slate-800"
+          >
+            <div className={`absolute inset-0 bg-amber-500/10 rounded-2xl transition-opacity duration-500 pointer-events-none ${isAnimating ? 'opacity-100' : 'opacity-0'}`}></div>
             <div className="w-14 h-14 bg-slate-700/50 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <GitMerge className="w-7 h-7 text-amber-400" />
             </div>
             <h3 className="text-white font-bold mb-1">CI/CD Pipelines</h3>
-            <p className="text-slate-400 text-sm text-center">GitHub Actions, Jenkins</p>
+            <div className="relative h-10 w-full overflow-hidden flex items-center justify-center">
+              <p className={`text-amber-300 text-xs text-center font-medium transition-all duration-300 transform ${
+                hoveredCard === 'cicd' 
+                  ? 'opacity-100 translate-y-0' 
+                  : 'opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0'
+              }`}>
+                GitHub Actions, Jenkins, GitLab CI, CircleCI, Azure DevOps
+              </p>
+            </div>
           </div>
         </div>
 

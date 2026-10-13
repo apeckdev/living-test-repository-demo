@@ -16,6 +16,34 @@ export const RelationalView: React.FC<Props> = ({ data, onClose, schemaFields = 
   const [ticketId, setTicketId] = useState('');
   const { test, requirement, cicd } = data;
 
+  const [prevTestId, setPrevTestId] = useState(test.id);
+  const [summary, setSummary] = useState(test.summary);
+  const [description, setDescription] = useState(test.description);
+
+  if (test.id !== prevTestId) {
+    setPrevTestId(test.id);
+    setSummary(test.summary);
+    setDescription(test.description);
+  }
+
+  const handleSummaryBlur = () => {
+    if (summary !== test.summary && onUpdateField) {
+      onUpdateField(test.id, 'summary', summary);
+    }
+  };
+
+  const handleDescriptionBlur = () => {
+    if (description !== test.description && onUpdateField) {
+      onUpdateField(test.id, 'description', description);
+    }
+  };
+
+  const handleClose = () => {
+    handleSummaryBlur();
+    handleDescriptionBlur();
+    onClose();
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
       case 'passed': return <CheckCircle className="w-6 h-6 text-emerald-500" />;
@@ -47,15 +75,22 @@ export const RelationalView: React.FC<Props> = ({ data, onClose, schemaFields = 
                 {test.id}: 
                 <input 
                   type="text" 
-                  value={test.summary} 
-                  onChange={(e) => onUpdateField && onUpdateField(test.id, 'summary', e.target.value)}
+                  value={summary} 
+                  onChange={(e) => setSummary(e.target.value)}
+                  onBlur={handleSummaryBlur}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur();
+                    }
+                  }}
                   className="bg-transparent border-b border-dashed border-slate-300 hover:border-slate-500 focus:border-indigo-500 outline-none w-full max-w-[300px] sm:max-w-md font-bold text-slate-900"
                 />
               </h2>
             </div>
             <textarea 
-              value={test.description}
-              onChange={(e) => onUpdateField && onUpdateField(test.id, 'description', e.target.value)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onBlur={handleDescriptionBlur}
               className="text-slate-600 ml-9 w-full max-w-xl bg-transparent border-b border-dashed border-slate-300 hover:border-slate-500 focus:border-indigo-500 outline-none resize-none leading-relaxed"
               rows={2}
             />
@@ -97,7 +132,7 @@ export const RelationalView: React.FC<Props> = ({ data, onClose, schemaFields = 
               </button>
             </div>
             <button 
-              onClick={onClose}
+              onClick={handleClose}
               className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
             >
               <XCircle className="w-6 h-6" />
@@ -269,7 +304,14 @@ export const RelationalView: React.FC<Props> = ({ data, onClose, schemaFields = 
             <div className="p-6 h-full bg-slate-900 text-slate-300 font-mono text-sm overflow-auto">
               <pre className="animate-in fade-in duration-300">
                 <code dangerouslySetInnerHTML={{ 
-                  __html: JSON.stringify(data, null, 2)
+                  __html: JSON.stringify({
+                    ...data,
+                    test: {
+                      ...test,
+                      summary,
+                      description
+                    }
+                  }, null, 2)
                     .replace(/"([^"]+)":/g, '<span class="text-indigo-400">"$1"</span>:')
                     .replace(/: ("[^"]+")/g, ': <span class="text-emerald-400">$1</span>')
                     .replace(/: (true|false|null|[0-9]+)/g, ': <span class="text-amber-400">$1</span>')
