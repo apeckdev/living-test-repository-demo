@@ -7,6 +7,8 @@ export interface TestData {
   steps: string[];
   isAutomated?: boolean;
   linkedTests?: string[];
+  prUrl?: string;
+  prNumber?: number;
   [key: string]: any; // Allow dynamic fields like new requirement fields
 }
 

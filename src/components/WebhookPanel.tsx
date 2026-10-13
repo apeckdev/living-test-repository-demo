@@ -10,6 +10,7 @@ import {
   Terminal, 
   Server, 
   GitMerge, 
+  GitPullRequest,
   Layers, 
   ExternalLink, 
   Filter 
@@ -19,11 +20,28 @@ interface Props {
   logs: AuditLog[];
   webhooks: Webhook[];
   integrations?: Integration[];
+  activeTargetFilter?: string | null;
+  onFilterChange?: (filter: string | null) => void;
 }
 
-export const WebhookPanel: React.FC<Props> = ({ logs, webhooks, integrations = mockIntegrations }) => {
+export const WebhookPanel: React.FC<Props> = ({ 
+  logs, 
+  webhooks, 
+  integrations = mockIntegrations,
+  activeTargetFilter = null,
+  onFilterChange
+}) => {
   const [showIntegrationsModal, setShowIntegrationsModal] = useState(false);
-  const [selectedTargetFilter, setSelectedTargetFilter] = useState<string | null>(null);
+  const [internalTargetFilter, setInternalTargetFilter] = useState<string | null>(null);
+
+  const selectedTargetFilter = activeTargetFilter !== undefined && onFilterChange ? activeTargetFilter : internalTargetFilter;
+  const setSelectedTargetFilter = (filter: string | null) => {
+    if (onFilterChange) {
+      onFilterChange(filter);
+    } else {
+      setInternalTargetFilter(filter);
+    }
+  };
 
   const filteredLogs = selectedTargetFilter
     ? logs.filter(log => log.target.toLowerCase().includes(selectedTargetFilter.toLowerCase()))
@@ -43,30 +61,42 @@ export const WebhookPanel: React.FC<Props> = ({ logs, webhooks, integrations = m
         <div className="flex items-center gap-3 flex-wrap">
           {/* Integrations Display */}
           <div className="relative">
-            <button
-              onClick={() => setShowIntegrationsModal(true)}
-              className="flex items-center gap-2.5 bg-slate-800 hover:bg-slate-700/80 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-600 transition-all cursor-pointer group shadow-sm text-left"
-              title="Click to view connected integrations"
-            >
-              <div className="flex items-center gap-1.5 text-indigo-400 font-semibold text-sm">
-                <Layers className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
+            <div className="flex items-center bg-slate-800 rounded-lg border border-slate-700 shadow-sm overflow-hidden">
+              <button
+                onClick={() => setShowIntegrationsModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-indigo-400 hover:text-indigo-300 hover:bg-slate-700/80 transition-colors font-semibold text-sm cursor-pointer"
+                title="View connected integrations details"
+              >
+                <Layers className="w-4 h-4 text-indigo-400" />
                 <span>Integrations</span>
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30">
                   {integrations.length}
                 </span>
+              </button>
+
+              <div className="hidden sm:flex items-center gap-1 px-2 py-1 border-l border-slate-700 bg-slate-850">
+                {integrations.map((item) => {
+                  const filterKey = item.name.toLowerCase().includes('ci/cd') ? 'pipeline' : item.name.toLowerCase();
+                  const isCurrent = selectedTargetFilter?.toLowerCase() === filterKey;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedTargetFilter(isCurrent ? null : filterKey)}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border transition-colors cursor-pointer ${
+                        isCurrent
+                          ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm'
+                          : 'bg-slate-900/90 text-slate-300 border-slate-700/60 hover:border-slate-500 hover:text-white'
+                      }`}
+                      title={isCurrent ? `Clear ${item.name} filter` : `Filter by ${item.name}`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"></span>
+                      {item.name}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="hidden sm:flex items-center gap-1.5 pl-1 border-l border-slate-700">
-                {integrations.map((item) => (
-                  <span
-                    key={item.id}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-900/90 text-slate-300 border border-slate-700/60 group-hover:border-slate-600 transition-colors"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"></span>
-                    {item.name}
-                  </span>
-                ))}
-              </div>
-            </button>
+            </div>
           </div>
 
           {/* Active Listeners */}
@@ -135,8 +165,14 @@ export const WebhookPanel: React.FC<Props> = ({ logs, webhooks, integrations = m
                     {log.eventType}
                   </td>
                   <td className="px-4 py-4 align-top font-medium text-slate-300 flex items-center gap-2">
-                    {log.target.includes('API') || log.target.includes('DevOps') ? <Server className="w-4 h-4 text-slate-500" /> : <GitMerge className="w-4 h-4 text-slate-500" />}
-                    {log.target}
+                    {log.target.toLowerCase().includes('github') ? (
+                      <GitPullRequest className="w-4 h-4 text-purple-400 shrink-0" />
+                    ) : log.target.includes('API') || log.target.includes('DevOps') ? (
+                      <Server className="w-4 h-4 text-slate-500 shrink-0" />
+                    ) : (
+                      <GitMerge className="w-4 h-4 text-slate-500 shrink-0" />
+                    )}
+                    <span>{log.target}</span>
                   </td>
                   <td className="px-4 py-4 align-top font-semibold text-slate-200">
                     {log.action}
@@ -194,49 +230,69 @@ export const WebhookPanel: React.FC<Props> = ({ logs, webhooks, integrations = m
             </div>
 
             <div className="p-5 space-y-3.5 overflow-y-auto">
-              {integrations.map((item) => (
-                <div key={item.id} className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/80 hover:border-slate-600 transition-colors">
-                  <div className="flex items-start justify-between gap-4 mb-2">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-bold text-white text-base">{item.name}</h4>
-                        <span className="text-[11px] px-2 py-0.5 rounded bg-slate-700/80 text-slate-300 font-medium">
-                          {item.category}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-300 leading-relaxed">{item.description}</p>
-                    </div>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Connected
-                    </span>
-                  </div>
+              {integrations.map((item) => {
+                const filterKey = item.name.toLowerCase().includes('ci/cd') ? 'pipeline' : item.name.toLowerCase();
+                const latestEvent = logs.find(log => log.target.toLowerCase().includes(filterKey));
 
-                  <div className="mt-3 pt-3 border-t border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                    <div className="text-slate-400 flex items-center gap-1.5 font-mono truncate">
-                      <ExternalLink className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                      <span className="truncate">{item.endpoint}</span>
+                return (
+                  <div key={item.id} className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/80 hover:border-slate-600 transition-colors">
+                    <div className="flex items-start justify-between gap-4 mb-2">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-bold text-white text-base flex items-center gap-2">
+                            {item.name.toLowerCase().includes('github') && <GitPullRequest className="w-4 h-4 text-purple-400" />}
+                            {item.name}
+                          </h4>
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-slate-700/80 text-slate-300 font-medium">
+                            {item.category}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 leading-relaxed">{item.description}</p>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Connected
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {item.capabilities.map((cap, idx) => (
-                        <span key={idx} className="px-2 py-0.5 rounded bg-slate-900/60 text-[10px] text-indigo-300 border border-slate-700/40 font-mono">
-                          {cap}
-                        </span>
-                      ))}
-                      <button
-                        onClick={() => {
-                          setSelectedTargetFilter(item.name.toLowerCase().includes('ci/cd') ? 'pipeline' : item.name.toLowerCase());
-                          setShowIntegrationsModal(false);
-                        }}
-                        className="px-2 py-0.5 rounded bg-indigo-600/30 hover:bg-indigo-600 text-[10px] text-indigo-200 hover:text-white border border-indigo-500/40 font-medium transition-colors cursor-pointer"
-                        title={`Filter log by ${item.name}`}
-                      >
-                        Filter Logs
-                      </button>
+
+                    {/* Latest Event Stream preview */}
+                    {latestEvent && (
+                      <div className="mt-2.5 px-3 py-2 rounded-lg bg-slate-900/90 border border-slate-700/60 flex items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] uppercase font-mono font-bold text-indigo-400 shrink-0">Latest Event:</span>
+                          <span className="text-slate-200 font-semibold truncate">{latestEvent.action}</span>
+                          <span className="text-slate-400 truncate hidden sm:inline text-[11px]">- {latestEvent.details}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono shrink-0">{latestEvent.timestamp}</span>
+                      </div>
+                    )}
+
+                    <div className="mt-3 pt-3 border-t border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div className="text-slate-400 flex items-center gap-1.5 font-mono truncate">
+                        <ExternalLink className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                        <span className="truncate">{item.endpoint}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {item.capabilities.map((cap, idx) => (
+                          <span key={idx} className="px-2 py-0.5 rounded bg-slate-900/60 text-[10px] text-indigo-300 border border-slate-700/40 font-mono">
+                            {cap}
+                          </span>
+                        ))}
+                        <button
+                          onClick={() => {
+                            setSelectedTargetFilter(filterKey);
+                            setShowIntegrationsModal(false);
+                          }}
+                          className="px-2 py-0.5 rounded bg-indigo-600/30 hover:bg-indigo-600 text-[10px] text-indigo-200 hover:text-white border border-indigo-500/40 font-medium transition-colors cursor-pointer"
+                          title={`Filter log by ${item.name}`}
+                        >
+                          Filter Logs
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="p-4 border-t border-slate-800 bg-slate-900/60 flex items-center justify-between">

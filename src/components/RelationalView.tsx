@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { AggregatedTestObject } from '../types';
-import { Server, CheckCircle, XCircle, AlertCircle, FileText, GitCommit, Link as LinkIcon, ListChecks, Code, Database, Edit2 } from 'lucide-react';
+import { Server, CheckCircle, XCircle, AlertCircle, FileText, GitCommit, Link as LinkIcon, ListChecks, Code, Database, Edit2, GitPullRequest, ExternalLink } from 'lucide-react';
 
 interface Props {
   data: AggregatedTestObject;
@@ -181,6 +181,42 @@ export const RelationalView: React.FC<Props> = ({ data, onClose, schemaFields = 
                     ))}
                   </ol>
                 </div>
+
+                {/* GitHub Automation Context */}
+                {test.isAutomated && (
+                  <div className="bg-slate-900 rounded-xl p-5 border border-slate-800 text-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <GitPullRequest className="w-5 h-5 text-purple-400" />
+                        GitHub Automation
+                      </h3>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> Steps Verified
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Target Repository:</span>
+                        <span className="font-mono text-indigo-300">github.com/org/living-test-repo</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Automation Pull Request:</span>
+                        {test.prNumber ? (
+                          <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">
+                            <ExternalLink className="w-3 h-3" /> PR #{test.prNumber} (Open)
+                          </span>
+                        ) : (
+                          <span className="text-amber-400 font-mono">Generating PR...</span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Branch Name:</span>
+                        <span className="font-mono text-slate-300">test/{test.id.toLowerCase()}-automated</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* CI/CD Context */}
                 {cicd ? (

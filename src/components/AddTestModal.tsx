@@ -50,7 +50,7 @@ export const AddTestModal: React.FC<Props> = ({ onClose, onSave }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden ring-1 ring-slate-900/5">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <h2 className="text-xl font-bold text-slate-900">Create New Test Case</h2>
+          <h2 className="text-xl font-bold text-slate-900">Create New Ticket / Test Case</h2>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
             <XCircle className="w-6 h-6" />
           </button>
@@ -106,7 +106,7 @@ export const AddTestModal: React.FC<Props> = ({ onClose, onSave }) => {
                 />
                 <label htmlFor="isAutomated" className="text-sm font-semibold text-slate-700 cursor-pointer">
                   Mark as Automated Test
-                  <p className="text-xs font-normal text-slate-500">If steps match automation keywords, a PR will be generated.</p>
+                  <p className="text-xs font-normal text-slate-500">Verifies step definitions against automation repository and automatically generates a GitHub PR.</p>
                 </label>
               </div>
             </div>
@@ -115,7 +115,7 @@ export const AddTestModal: React.FC<Props> = ({ onClose, onSave }) => {
               <div className="flex justify-between items-end mb-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700">Test Steps</label>
-                  <p className="text-xs text-slate-500 mt-1">Write steps matching BDD formats to enable automated PR generation.</p>
+                  <p className="text-xs text-slate-500 mt-1">Steps will be verified against existing repository step definitions.</p>
                 </div>
                 <button type="button" onClick={handleAddStep} className="text-indigo-600 hover:text-indigo-700 text-sm font-medium flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors">
                   <Plus className="w-4 h-4" /> Add Step
@@ -153,7 +153,7 @@ export const AddTestModal: React.FC<Props> = ({ onClose, onSave }) => {
             Cancel
           </button>
           <button type="submit" form="add-test-form" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm shadow-indigo-600/20 transition-all flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5" /> Save Test
+            <CheckCircle2 className="w-5 h-5" /> Save Ticket
           </button>
         </div>
       </div>

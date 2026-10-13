@@ -1,5 +1,5 @@
 import type { AggregatedTestObject } from '../types';
-import { CheckCircle, XCircle, AlertCircle, ArrowRight, Eye, Edit2 } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, ArrowRight, Eye, Edit2, GitPullRequest } from 'lucide-react';
 
 interface Props {
   data: AggregatedTestObject[];
@@ -95,7 +95,15 @@ export const Dashboard: React.FC<Props> = ({ data, onSelectTest, schemaFields = 
                   {item.test.id}
                 </td>
                 <td className="px-6 py-4 font-medium text-slate-900">
-                  {item.test.summary}
+                  <div className="flex items-center gap-2">
+                    <span>{item.test.summary}</span>
+                    {item.test.isAutomated && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/20" title="Automated Test with PR Linkage">
+                        <GitPullRequest className="w-3 h-3 text-purple-600" />
+                        Auto
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4">
                   {getStatusBadge(item.test.status)}

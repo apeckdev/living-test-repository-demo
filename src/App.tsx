@@ -7,7 +7,7 @@ import { AddTestModal } from './components/AddTestModal';
 import { runAggregationEngine } from './services/aggregation';
 import { mockIntegrations } from './data/mockData';
 import type { AggregatedTestObject, AuditLog, Webhook, TestData, Integration } from './types';
-import { Layers, Plus, FileText } from 'lucide-react';
+import { Layers, Plus, FileText, GitPullRequest, ArrowRight, XCircle } from 'lucide-react';
 
 function App() {
   const [currentTab, setCurrentTab] = useState<'repository' | 'events'>('repository');
@@ -15,6 +15,13 @@ function App() {
   const [isAggregated, setIsAggregated] = useState(false);
   const [selectedTest, setSelectedTest] = useState<AggregatedTestObject | null>(null);
   const [isAddingTest, setIsAddingTest] = useState(false);
+  const [activeTargetFilter, setActiveTargetFilter] = useState<string | null>(null);
+  const [toastNotification, setToastNotification] = useState<{
+    id: string;
+    title: string;
+    message: string;
+    prUrl?: string;
+  } | null>(null);
   
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [webhooks] = useState<Webhook[]>([{ id: 'WH-1', name: 'Jira Sync Listener', url: 'https://api.internal/webhooks/jira-sync', events: ['schema.updated', 'test.updated'] }]);
@@ -149,6 +156,14 @@ function App() {
     setIsAddingTest(false);
     
     const newTestId = `TEST-${Math.floor(Math.random() * 900) + 100}`;
+    const effectiveSteps = (testData.steps && testData.steps.length > 0)
+      ? testData.steps
+      : [
+          `Navigate to ${testData.summary || 'application module'}`,
+          `Execute test action for ${newTestId}`,
+          `Verify successful outcome and assertion`
+        ];
+
     const newTest: AggregatedTestObject = {
       test: {
         id: newTestId,
@@ -156,7 +171,7 @@ function App() {
         summary: testData.summary || '',
         priority: testData.priority || 'Medium',
         status: testData.status || 'Skipped',
-        steps: testData.steps || [],
+        steps: effectiveSteps,
         isAutomated: testData.isAutomated || false,
       },
       requirement: null,
@@ -169,25 +184,102 @@ function App() {
     });
 
     setData(prev => [newTest, ...prev]);
-    addLog('New Test Created', `${newTestId}: ${newTest.test.summary}`, 'success', 'test.create', 'Internal Engine', { testId: newTestId });
+    addLog('New Test Ticket Created', `${newTestId}: ${newTest.test.summary}`, 'success', 'ticket.create', 'Internal Engine', { 
+      ticketId: newTestId, 
+      type: testData.isAutomated ? 'Automated Test' : 'Manual Test',
+      stepsCount: effectiveSteps.length 
+    });
 
-    // Automation Check for PR Generation
-    if (testData.isAutomated && testData.steps && testData.steps.length > 0) {
-      const automationKeywords = ['navigate', 'enter', 'click', 'verify', 'select', 'type'];
-      const allStepsMatch = testData.steps.every(step => {
-        const lowerStep = step.toLowerCase();
-        return automationKeywords.some(keyword => lowerStep.startsWith(keyword));
-      });
+    // Automation Check & PR Generation for Automated Tests
+    if (testData.isAutomated) {
+      const prNumber = Math.floor(Math.random() * 800) + 1040;
+      const prUrl = `https://github.com/org/living-test-repo/pull/${prNumber}`;
+      const branchName = `test/${newTestId.toLowerCase()}-automated`;
 
-      if (allStepsMatch) {
-        addLog('Automation BDD Match', `Steps match definitions. Generating PR code...`, 'success', 'system.compute', 'Automation Engine');
-        setTimeout(() => addLog('Webhook Fired: GitHub PR', `Automated PR requested for ${newTestId}`, 'pending', 'webhook.fire', 'GitHub API', { prTitle: `Auto-test: ${testData.summary}`, steps: testData.steps }), 800);
-        setTimeout(() => addLog('GitHub PR Created', `PR #1042 successfully opened`, 'success', 'webhook.response', 'GitHub API', { prUrl: 'https://github.com/org/repo/pull/1042', status: 'opened' }), 2000);
-      } else {
-        addLog('Automated Test Created', `Steps do not perfectly match definitions. Manual review required.`, 'success', 'system.info', 'Automation Engine');
-      }
+      // 1. Fake check beforehand: verify steps against repository definitions
+      setTimeout(() => {
+        addLog(
+          'Verifying Automation Steps',
+          `Checking ${effectiveSteps.length} step(s) against repository step definitions in living-test-repo...`,
+          'pending',
+          'github.step_check',
+          'GitHub Integration',
+          {
+            repository: 'github.com/org/living-test-repo',
+            testId: newTestId,
+            stepsToCheck: effectiveSteps,
+            targetBranch: 'main'
+          }
+        );
+      }, 500);
+
+      // 2. Fake check result: all steps exist in automation
+      setTimeout(() => {
+        addLog(
+          'Automation Step Definitions Verified',
+          `All ${effectiveSteps.length} step(s) exist in automation repository. Step definitions matched.`,
+          'success',
+          'github.steps_verified',
+          'GitHub Integration',
+          {
+            repository: 'github.com/org/living-test-repo',
+            testId: newTestId,
+            matchedSteps: effectiveSteps,
+            stepCoverage: '100%',
+            status: 'ALL_DEFINITIONS_EXIST'
+          }
+        );
+      }, 1300);
+
+      // 3. PR Created event on the GitHub integration
+      setTimeout(() => {
+        // Also attach the PR info to the test record in state so UI can show it
+        setData(prev => prev.map(item => {
+          if (item.test.id === newTestId) {
+            return {
+              ...item,
+              test: {
+                ...item.test,
+                prNumber,
+                prUrl
+              }
+            };
+          }
+          return item;
+        }));
+
+        addLog(
+          'GitHub PR Created',
+          `PR #${prNumber} created for new automated test ${newTestId}: "${testData.summary}". Automated test definition added to repository.`,
+          'success',
+          'github.pr_created',
+          'GitHub Integration',
+          {
+            prNumber,
+            prUrl,
+            testId: newTestId,
+            title: `[Auto-Test] ${newTestId}: ${testData.summary}`,
+            headBranch: branchName,
+            baseBranch: 'main',
+            stepsIncluded: effectiveSteps,
+            status: 'opened',
+            checks: 'passed'
+          }
+        );
+
+        setToastNotification({
+          id: `toast-${Date.now()}`,
+          title: `GitHub PR #${prNumber} Created`,
+          message: `Automated PR generated for ${newTestId}: "${testData.summary}"`,
+          prUrl
+        });
+
+        setTimeout(() => {
+          setToastNotification(null);
+        }, 8000);
+      }, 2200);
     } else {
-      addLog('Manual Test Created', `No PR generated because test is marked as manual.`, 'success', 'system.info', 'Automation Engine');
+      addLog('Manual Test Case Ingested', `Test ${newTestId} marked as manual. Automated step verification and GitHub PR creation skipped.`, 'success', 'test.info', 'Automation Engine', { testId: newTestId });
     }
   };
 
@@ -300,9 +392,14 @@ function App() {
               </button>
               <button 
                 onClick={() => setCurrentTab('events')}
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${currentTab === 'events' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${currentTab === 'events' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
               >
-                Events
+                <span>Events</span>
+                {logs.length > 0 && (
+                  <span className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold ${currentTab === 'events' ? 'bg-indigo-200 text-indigo-800' : 'bg-slate-200 text-slate-700'}`}>
+                    {logs.length}
+                  </span>
+                )}
               </button>
             </nav>
           </div>
@@ -331,14 +428,14 @@ function App() {
                 <div className="flex flex-wrap gap-2">
                   <button 
                     onClick={() => setIsAddingTest(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm shadow-indigo-600/20"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm shadow-indigo-600/20 cursor-pointer"
                   >
                     <FileText className="w-4 h-4" />
-                    New Test Case
+                    New Ticket / Test Case
                   </button>
                   <button 
                     onClick={handleSimulateRequirement}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     Simulate New Requirement
@@ -356,7 +453,13 @@ function App() {
           </div>
         ) : (
           <div className="h-[800px] max-h-[80vh]">
-            <WebhookPanel logs={logs} webhooks={webhooks} integrations={integrations} />
+            <WebhookPanel 
+              logs={logs} 
+              webhooks={webhooks} 
+              integrations={integrations} 
+              activeTargetFilter={activeTargetFilter}
+              onFilterChange={setActiveTargetFilter}
+            />
           </div>
         )}
       </main>
@@ -378,6 +481,44 @@ function App() {
           onClose={() => setIsAddingTest(false)} 
           onSave={handleAddTest} 
         />
+      )}
+
+      {/* Toast Notification for GitHub PR */}
+      {toastNotification && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-slate-900 border border-slate-700 text-white rounded-xl shadow-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-5 duration-300">
+          <div className="p-2 bg-purple-500/20 text-purple-400 rounded-lg shrink-0 mt-0.5">
+            <GitPullRequest className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0 pr-2">
+            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+              {toastNotification.title}
+              <span className="text-[10px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                Verified
+              </span>
+            </h4>
+            <p className="text-xs text-slate-300 mt-0.5 truncate">{toastNotification.message}</p>
+            <div className="mt-2.5 flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setCurrentTab('events');
+                  setActiveTargetFilter('github');
+                  setToastNotification(null);
+                }}
+                className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <span>View in Events Stream</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          <button
+            onClick={() => setToastNotification(null)}
+            className="text-slate-400 hover:text-slate-200 p-1 rounded-md transition-colors cursor-pointer"
+            title="Dismiss"
+          >
+            <XCircle className="w-4 h-4" />
+          </button>
+        </div>
       )}
     </div>
   );
